@@ -1,0 +1,41 @@
+# --- Secrets ---
+.env
+*.env.local
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+
+# --- Virtual envs ---
+.venv/
+venv/
+env/
+
+# --- Generated data ---
+data/shopflow.db
+data/saved_questions.json
+
+# --- Runtime / logs ---
+logs/
+*.log
+
+# --- Workshop materials NOT for student repo ---
+slides/
+facilitator/
+
+# --- OS / IDE ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# --- Stray substitution dir (env var unset) ---
+${SHOPFLOW_DB}/

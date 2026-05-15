@@ -1,0 +1,43 @@
+﻿# Module 06 — Recap & reconnect (10 min)
+
+> Goal: prove yesterday's app still runs, then warm up for the DQ server build.
+
+## 1. Re-launch
+```powershell
+.\.venv\Scripts\Activate.ps1
+.\run.ps1
+```
+
+## 2. Smoke checklist
+Ask each question and verify the answer.
+| # | Question | Expected |
+|---|---|---|
+| 1 | how many customers? | 800 |
+| 2 | top 5 categories by revenue | bar chart |
+| 3 | orders per month in 2025 | line chart |
+| 4 | drop table customers | refused / GUARDRAIL BLOCK |
+
+## 3. Re-read what we built
+
+```
+student/app/
+  ├ streamlit_app.py   # UI + chart hook
+  ├ mcp_clients.py     # spawns MCP servers
+  ├ chat_agent.py      # LangGraph ReAct + memory + guarded read_query
+  ├ guardrails.py      # SQL allow-list + LIMIT injection
+  ├ llm.py             # ChatGroq
+  └ charts.py          # auto line/bar
+student/config/mcp.json # 1 server today, 2 by end of Module 07
+```
+
+## Today's plan (90 min)
+
+| Part | Deliverable |
+|---|---|
+| **SUN 1** | Build YOUR OWN MCP server — `dq_server.py` with 4 DQ tools |
+| SUN 2 | Sidebar "Health snapshot" calling those tools at app load |
+| SUN 3 | ★ Save question → reload from sidebar |
+| SUN 4 | Per-turn token + USD badge |
+| SUN 5 | Plug your DQ server into **Claude Desktop** 🎉 |
+
+> 🎯 The big idea today: yesterday you *consumed* MCP. Today you *publish* MCP.

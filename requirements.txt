@@ -1,0 +1,21 @@
+streamlit>=1.36
+pandas>=2.2
+plotly>=5.22
+python-dotenv>=1.0
+sqlalchemy>=2.0
+faker>=25.0
+
+# LLM (Groq is the default, free, fast)
+langchain>=0.3,<2.0
+langchain-core>=0.3,<2.0
+langchain-groq>=0.2,<1.0
+langgraph>=0.2,<2.0
+
+# MCP - the spine of the architecture
+mcp>=1.0
+langchain-mcp-adapters>=0.1
+nest-asyncio>=1.6
+
+# Dev / authoring
+pytest>=8.0
+python-pptx>=1.0
