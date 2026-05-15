@@ -22,6 +22,7 @@ env/
 # --- Generated data ---
 data/shopflow.db
 data/saved_questions.json
+data/rag.chroma/
 
 # --- Runtime / logs ---
 logs/
@@ -36,6 +37,3 @@ facilitator/
 Thumbs.db
 .vscode/
 .idea/
-
-# --- Stray substitution dir (env var unset) ---
-${SHOPFLOW_DB}/

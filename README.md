@@ -1,7 +1,7 @@
 # DataPilot — an MCP-native SQL & Data-Quality agent
 
 > A production-shaped reference project: **one chat tab, one ReAct agent,
-> two real MCP servers, ~600 lines of Python**. Built live with the audience
+> three real MCP servers, ~700 lines of Python**. Built live with the audience
 > across **two 90-minute sessions** (~3 hours of seat time).
 
 ---
@@ -14,7 +14,7 @@
 5. [The data: ShopFlow](#5-the-data-shopflow)
 6. [Repository layout](#6-repository-layout)
 7. [Quick start](#7-quick-start)
-8. [The webinar script — 12 modules, each visible in the UI](#8-the-webinar-script--12-modules-each-visible-in-the-ui)
+8. [The webinar script — 11 modules, each visible in the UI](#8-the-webinar-script--11-modules-each-visible-in-the-ui)
 9. [Validation](#9-validation)
 10. [Troubleshooting](#10-troubleshooting)
 
@@ -25,17 +25,20 @@
 A Streamlit app where a non-technical user types business questions like
 *"top 5 product categories by revenue"* and gets back a one-line answer, a
 sortable table, and a Plotly chart. The sidebar shows red/green
-data-quality badges, ★-saved questions, and a per-turn cost meter.
+data-quality badges and the list of connected MCP servers. The agent also
+answers conceptual questions like *"what does VIP mean?"* by searching
+your `docs/*.md` corpus through a second in-house MCP server.
 
 Under the hood, a **LangGraph ReAct agent** decides which tool to call.
-The tools live in **two MCP servers** running as separate subprocesses:
+The tools live in **three MCP servers** running as separate subprocesses:
 
 1. **`shopflow-sqlite`** — Anthropic's reference [`mcp-server-sqlite`](https://github.com/modelcontextprotocol/servers), launched via `uvx` (6 tools)
-2. **`datapilot-dq`** — *your own* MCP server (Module 7), 4 data-quality tools, ~60 lines of FastMCP
+2. **`datapilot-dq`** — *your own* MCP server (Module 07), 4 data-quality tools, ~60 lines of FastMCP
+3. **`datapilot-rag`** — *your other own* MCP server (Module 09), 2 semantic-search tools backed by ChromaDB over `docs/*.md`
 
-The same DQ server is later registered in **Claude Desktop** so a second,
-unrelated agent can call your tools without code changes. That is the
-whole point of MCP — *write the tool once, every agent gets it*.
+The DQ and RAG servers are later registered in **Claude Desktop** so a
+second, unrelated agent can call your tools without code changes. That
+is the whole point of MCP — *write the tool once, every agent gets it*.
 
 ---
 
@@ -50,6 +53,7 @@ whole point of MCP — *write the tool once, every agent gets it*.
 | **MCP client** | `langchain-mcp-adapters` (`MultiServerMCPClient`) | Spawns servers, discovers their tools, wraps them as LangChain `BaseTool` objects. |
 | **MCP server framework** | `mcp` package (FastMCP) | Decorator-based: `@mcp.tool()` turns a function into a discoverable tool. |
 | **Off-the-shelf MCP server** | `mcp-server-sqlite` via `uvx` | Don't reinvent SQL execution; reuse the published one. |
+| **Vector store (RAG)** | `chromadb` with bundled ONNX `all-MiniLM-L6-v2` | File-based, no server, no torch. ~120MB embedding model auto-downloaded. |
 | **UI** | Streamlit + Plotly | Lowest friction for chat + charts. |
 | **Database** | SQLite (`shopflow.db`) | Zero-setup, file-based, works offline. Architecture is portable to Postgres/Snowflake by swapping the MCP server. |
 | **Synthetic data** | `Faker` | 800 customers, 4 000 orders, 7 tables, repeatable seed (42). |
@@ -131,26 +135,27 @@ agent can pick on its own.
 └──────────────────────────────┬─────────────────────────────────┘
                                │  JSON-RPC over stdio
                                ▼
-┌──────────────────────┐               ┌──────────────────────┐
-│  shopflow-sqlite     │               │  datapilot-dq        │
-│  (uvx, 6 tools)      │               │  (FastMCP, 4 tools)  │
-│  list_tables,        │               │  count_rows,         │
-│  describe_table,     │               │  check_freshness,    │
-│  read_query, …       │               │  check_nulls,        │
-│                      │               │  check_duplicates    │
-└──────────┬───────────┘               └──────────┬───────────┘
-           │                                      │
-           └──────────────────┬───────────────────┘
-                              ▼
-                      ┌──────────────┐
-                      │  shopflow.db │   ← SQLite (swap for
-                      │  800 cust    │     Postgres/Snowflake
-                      │  4 000 ord   │     by editing mcp.json)
-                      └──────────────┘
+┌─────────────────┐   ┌──────────────────┐   ┌──────────────────┐
+│ shopflow-sqlite │   │  datapilot-dq    │   │  datapilot-rag   │
+│ (uvx, 6 tools)  │   │ (FastMCP, 4)     │   │ (FastMCP, 2)     │
+│ list_tables,    │   │ count_rows,      │   │ search_docs,     │
+│ describe_table, │   │ check_freshness, │   │ list_docs        │
+│ read_query, ... │   │ check_nulls,     │   │                  │
+│                 │   │ check_duplicates │   │                  │
+└────┬────────────┘   └────┬─────────────┘   └────┬─────────────┘
+     │                  │                       │
+     └──────┬───────────┘                       │
+            ▼                                   ▼
+   ┌──────────────┐               ┌────────────────────┐
+   │  shopflow.db │               │ data/rag.chroma/   │
+   │  800 cust    │               │ (vector index over │
+   │  4 000 ord   │               │  docs/*.md)        │
+   └──────────────┘               └────────────────────┘
 ```
 
-**The same `datapilot-dq` server is also registered in Claude Desktop**
-via `claude_desktop_config.example.json`. Two clients, one tool.
+**Both `datapilot-dq` and `datapilot-rag` are also registered in Claude
+Desktop** via `claude_desktop_config.example.json` (Module 10). Two
+clients, two custom tools each.
 
 ---
 
@@ -180,7 +185,10 @@ Realistic enough to ask *"refund rate by category"*, *"AOV by channel"*,
 .
 ├── data/
 │   ├── build_shopflow.py              # synthetic-data generator
-│   └── shopflow.db                    # generated SQLite warehouse
+│   ├── shopflow.db                    # generated SQLite warehouse
+│   └── rag.chroma/                    # generated vector index (Module 09)
+│
+├── docs/                              # RAG corpus (7 short markdown files)
 │
 ├── solution/                          # finished reference app
 │   ├── app/
@@ -189,23 +197,23 @@ Realistic enough to ask *"refund rate by category"*, *"AOV by channel"*,
 │   │   ├── mcp_clients.py             # spawns the MCP servers
 │   │   ├── guardrails.py              # SQL sanitiser
 │   │   ├── charts.py                  # auto line/bar/none
-│   │   ├── cost.py                    # token + USD estimator
-│   │   ├── storage.py                 # ★-saved questions JSON store
 │   │   ├── llm.py                     # Groq client factory
-│   │   └── config/mcp.json            # MCP server registry
-│   └── mcp_servers/dq_server.py       # in-house MCP server (4 DQ tools)
+│   │   └── config/mcp.json            # MCP server registry (3 entries)
+│   └── mcp_servers/
+│       ├── dq_server.py               # in-house MCP server (4 DQ tools)
+│       ├── rag_server.py              # in-house MCP server (2 RAG tools)
+│       └── build_rag_index.py         # builds data/rag.chroma/ from docs/
 │
 ├── student/
 │   ├── app/streamlit_app.py           # Day-0 empty shell
 │   ├── README.md                      # module index
-│   └── MODULE_00_*.md … MODULE_11_*.md  # 12 build cards (one per module)
+│   └── MODULE_00_*.md … MODULE_10_*.md  # 11 build cards (one per module)
 │
-├── tests/                             # pytest — guardrails + charts (17)
-├── slides/                            # build_pptx.py → datapilot_workshop.pptx
+├── tests/                             # pytest — guardrails + charts
 ├── facilitator/RUN_OF_SHOW.md         # instructor's minute-by-minute script
 ├── checkpoints/README.md              # "I fell behind, copy this file" map
-├── claude_desktop_config.example.json # template for Module 11
-├── smoke_e2e.py                       # 4 questions, end-to-end agent harness
+├── claude_desktop_config.example.json # template for Module 10
+├── smoke_e2e.py                       # end-to-end agent harness
 ├── requirements.txt
 ├── run.ps1                            # one-shot launcher (Windows)
 └── README.md                          # this file
@@ -239,7 +247,7 @@ To run both in parallel (different ports):
 
 ---
 
-## 8. The webinar script — 12 modules, each visible in the UI
+## 8. The webinar script — 11 modules, each visible in the UI
 
 The whole project is structured so every single module produces a **visible
 change in the running Streamlit app**. After each module, students refresh
@@ -269,11 +277,11 @@ python data\build_shopflow.py
 ```
 
 **What students see in Streamlit:** the **Day-0 shell** — a sidebar listing
-the 12 modules they're about to build. Empty main pane with the message
+the 11 modules they're about to build. Empty main pane with the message
 *"Open the first PART card and start building."*
 
 **Talking point:** *"Notice there's no chat box, no tools, nothing. By
-module 11 this same file will be a working analytics agent."*
+module 10 this same file will be a working analytics agent."*
 
 ---
 
@@ -290,7 +298,7 @@ declare a server in `mcp.json`, spawn it as a subprocess, and ask it
 **Code to write live (mcp.json):**
 ```json
 {
-  "servers": {
+  "mcpServers": {
     "shopflow-sqlite": {
       "command": "uvx",
       "args": ["mcp-server-sqlite", "--db-path", "${SHOPFLOW_DB}"],
@@ -304,7 +312,7 @@ declare a server in `mcp.json`, spawn it as a subprocess, and ask it
 ```python
 async def _gather():
     cfg = _load_config()                                    # reads mcp.json
-    client = MultiServerMCPClient(cfg["servers"])           # spawns subprocesses
+    client = MultiServerMCPClient(cfg["mcpServers"])         # spawns subprocesses
     tools = await client.get_tools()                        # asks each "what can you do?"
     return client, tools
 ```
@@ -629,90 +637,71 @@ when a user asks, and a one-click button for proactive monitoring."*
 
 ---
 
-#### **Module 9 — Saved questions** (15 min)
+#### **Module 9 — RAG over your docs** (25 min)
 
-**Concept introduced:** Lightweight **persistence** — JSON file under
-`data/`, no DB, no ORM.
+**Concept introduced:** A **second** in-house MCP server, in a completely
+different shape from the DQ one. The agent now answers semantic questions
+like *"what does VIP mean?"* by searching your `docs/*.md` corpus.
 
-**File created:** [solution/app/storage.py](solution/app/storage.py).
+**Files created:**
+- [solution/mcp_servers/build_rag_index.py](solution/mcp_servers/build_rag_index.py) — one-shot indexer.
+- [solution/mcp_servers/rag_server.py](solution/mcp_servers/rag_server.py) — `@mcp.tool() search_docs` + `list_docs`.
+
+**Stack:** ChromaDB with its bundled ONNX `all-MiniLM-L6-v2` embedding —
+no torch, no API key, the model auto-downloads on first index (~120MB).
 
 ```python
-STORE = Path("data") / "saved_questions.json"
-def load() -> list[str]: ...
-def add(question: str) -> list[str]: ...
-def remove(question: str) -> list[str]: ...
+@mcp.tool()
+def search_docs(query: str, k: int = 3) -> str:
+    res = collection.query(query_texts=[query], n_results=k)
+    return "\n---\n".join(res["documents"][0])
 ```
 
-**UI hooks:** ★ Save button after each assistant turn; sidebar list of
-saved questions; clicking a saved question re-asks it.
+**Wired into the agent** by adding a third entry to
+[solution/app/config/mcp.json](solution/app/config/mcp.json) and adding
+`search_docs` / `list_docs` to the whitelist in `chat_agent.py`.
 
-**What students see:**
-- After every answer, a **★ Save** button appears.
-- Click it → the question shows up in the sidebar's **★ Saved questions**.
-- Click the saved entry → it re-runs the question (same memory thread).
-- Reload the browser → saved questions persist.
+**What students see:** ask *"what is a VIP customer?"* → the agent calls
+`search_docs`, grounds its answer in `docs/02_segments_glossary.md`, and
+cites a snippet. The sidebar now shows **three** MCP servers.
 
-**Talking point:** *"For a workshop product, a JSON file beats a database.
-Reach for ceremony only when you need it."*
+**Talking point:** *"Same MCP framework, totally different domain — SQL
+last hour, vector search this hour. The agent picks the right tool
+without us writing a single routing rule."*
 
 ---
 
-#### **Module 10 — Cost telemetry** (10 min)
+#### **Module 10 — Cross-client portability with Claude Desktop** 🎉 (15 min)
 
-**Concept introduced:** Build the **operational instinct** that every
-LLM call costs money. Show it on every turn.
-
-**File created:** [solution/app/cost.py](solution/app/cost.py).
-
-```python
-PRICE_INPUT_PER_M  = 0.10   # $/1M tokens (Groq gpt-oss-20b)
-PRICE_OUTPUT_PER_M = 0.50
-
-def crude_token_count(text):  return max(1, len(text) // 4)
-def estimate_usd(in_tok, out_tok):
-    return in_tok/1e6 * PRICE_INPUT_PER_M + out_tok/1e6 * PRICE_OUTPUT_PER_M
-```
-
-**UI hook:** under each assistant turn, show `⚡ {ms} · ${cost:.4f}`.
-In the sidebar footer, show today's totals: `💰 Today: N turns · M tok · $X.XXXX`.
-
-**What students see:** every assistant message now has a tiny cost badge.
-After 10 turns the sidebar reads something like
-*"💰 Today: 10 turns · 12 480 tok · $0.0042"*.
-
-**Talking point:** *"You will be the person on your team who cares about
-this. Make it visible from day one."*
-
----
-
-#### **Module 11 — Cross-client portability with Claude Desktop** 🎉 (15 min)
-
-**Concept introduced:** **The same MCP server in two completely different
-agents.** This is the punchline of the whole workshop.
+**Concept introduced:** **Both** of your in-house MCP servers running in
+**two** completely different agents. This is the punchline of the whole
+workshop.
 
 **File:** [claude_desktop_config.example.json](claude_desktop_config.example.json) (template provided).
 
 **Live steps:**
 1. Open Claude Desktop's config file (`%APPDATA%\Claude\claude_desktop_config.json`).
-2. Paste the `datapilot-dq` block from the example, adjusting paths to absolute.
-3. Quit Claude. Re-open. The 🔌 tools icon now shows `datapilot-dq` with 4 tools.
-4. Ask Claude: *"is the orders table fresh in datapilot-dq?"* → Claude
-   calls **your** server and returns the same `[STALE] orders.order_date ...`
-   string DataPilot showed in the sidebar.
+2. Paste the `datapilot-dq` and `datapilot-rag` blocks from the example,
+   adjusting paths to absolute.
+3. Quit Claude. Re-open. The 🔌 tools icon now shows `datapilot-dq` (4 tools)
+   and `datapilot-rag` (2 tools).
+4. Ask Claude: *"is the orders table fresh, and what does VIP mean?"* →
+   Claude calls **both of your servers** in one turn and answers using
+   results from each.
 
-**What students see:** the *exact same data-quality string* showing up in
+**What students see:** the *exact same DQ and RAG outputs* showing up in
 **Claude Desktop**, called by **Claude's own ReAct loop**, hitting **your
-Python server**. Side-by-side both windows is the demo.
+two Python servers**. Side-by-side both windows is the demo.
 
 **Talking point:** *"Two completely unrelated agents — built by different
-teams, using different LLMs — now share your tool. That's the leverage
-MCP unlocks."*
+teams, using different LLMs — now share both of your tools. That's the
+leverage MCP unlocks."*
 
 ---
 
-> **Phase 2 exit:** two MCP servers, in-house DQ tools, sidebar health
-> snapshot, ★-saved questions, cost telemetry, cross-client demo.
-> 17 tests green. End-to-end smoke pass.
+> **Phase 2 exit:** three MCP servers (one off-the-shelf, two you built),
+> sidebar health snapshot, semantic doc search, cross-client demo.
+> Tests green. End-to-end smoke pass.
 
 ---
 

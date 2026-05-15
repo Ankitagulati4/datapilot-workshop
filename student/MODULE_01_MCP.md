@@ -7,7 +7,16 @@ MCP = Model Context Protocol. Tools live in **separate processes** with a
 strict JSON contract. Your agent stops caring whether it's SQLite, Postgres,
 Snowflake — it just sees `read_query`, `list_tables`, etc.
 
-## 1. Create `student/config/mcp.json`
+> ⚠️ **Path note** — we put `mcp.json` **inside** `student/app/config/`
+> (sibling of `mcp_clients.py`), matching the layout used by `solution/`.
+> That's why `mcp_clients.py` uses `Path(__file__).parent / "config"` below,
+> NOT `parents[1]`. Keep these in sync.
+>
+> The starter `streamlit_app.py` already contains a `sys.path` shim at the
+> top so `from app.mcp_clients import ...` works when Streamlit is launched
+> from the repo root. Leave it there.
+
+## 1. Create `student/app/config/mcp.json`
 ```json
 {
   "mcpServers": {
@@ -26,10 +35,11 @@ import asyncio, json, os
 from pathlib import Path
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
-ROOT = Path(__file__).resolve().parents[2]
+# config/ is a sibling of this file (student/app/config/mcp.json)
+CONFIG = Path(__file__).parent / "config" / "mcp.json"
 
 def _load_config() -> dict:
-    raw = (Path(__file__).resolve().parents[1] / "config" / "mcp.json").read_text()
+    raw = CONFIG.read_text()
     # expand ${VAR} from environment
     for k, v in os.environ.items():
         raw = raw.replace(f"${{{k}}}", v.replace("\\", "\\\\"))

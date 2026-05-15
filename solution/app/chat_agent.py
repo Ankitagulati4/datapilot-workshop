@@ -56,6 +56,8 @@ SAFE_TOOL_NAMES = {
     "check_nulls",
     "check_duplicates",
     "count_rows",
+    "search_docs",
+    "list_docs",
 }
 
 

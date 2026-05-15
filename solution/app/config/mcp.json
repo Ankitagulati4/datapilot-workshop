@@ -1,5 +1,5 @@
 {
-  "servers": {
+  "mcpServers": {
     "shopflow-sqlite": {
       "command": "uvx",
       "args": ["mcp-server-sqlite", "--db-path", "${SHOPFLOW_DB}"],
@@ -8,6 +8,11 @@
     "datapilot-dq": {
       "command": "python",
       "args": ["solution/mcp_servers/dq_server.py", "${SHOPFLOW_DB}"],
+      "transport": "stdio"
+    },
+    "datapilot-rag": {
+      "command": "python",
+      "args": ["solution/mcp_servers/rag_server.py"],
       "transport": "stdio"
     }
   }

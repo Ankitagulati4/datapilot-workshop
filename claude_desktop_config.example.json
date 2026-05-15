@@ -4,8 +4,14 @@
     "datapilot-dq": {
       "command": "python",
       "args": [
-        "<REPO_ABS_PATH>/solution/mcp_servers/dq_server.py",
+        "<REPO_ABS_PATH>/student/mcp_servers/dq_server.py",
         "<REPO_ABS_PATH>/data/shopflow.db"
+      ]
+    },
+    "datapilot-rag": {
+      "command": "python",
+      "args": [
+        "<REPO_ABS_PATH>/student/mcp_servers/rag_server.py"
       ]
     },
     "shopflow-sqlite": {

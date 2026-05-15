@@ -2,7 +2,7 @@
 
 > Goal: understand `mcp.json` so well that swapping SQLite → Postgres takes 4 lines.
 
-## Read your current `student/config/mcp.json`
+## Read your current `student/app/config/mcp.json`
 
 ```json
 {
@@ -26,7 +26,7 @@
 {
   "mcpServers": {
     "shopflow-sqlite": { "command": "uvx", "args": ["mcp-server-sqlite", "--db-path", "${SHOPFLOW_DB}"], "transport": "stdio" },
-    "datapilot-dq":   { "command": "python", "args": ["solution/mcp_servers/dq_server.py", "${SHOPFLOW_DB}"], "transport": "stdio" }
+    "datapilot-dq":   { "command": "python", "args": ["student/mcp_servers/dq_server.py", "${SHOPFLOW_DB}"], "transport": "stdio" }
   }
 }
 ```

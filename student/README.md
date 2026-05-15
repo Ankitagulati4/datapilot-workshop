@@ -39,9 +39,8 @@ Open and follow each MODULE card **in order**.
 | 06 | [MODULE_06_RECAP.md](MODULE_06_RECAP.md) | 10 | reconnect, smoke test |
 | 07 | [MODULE_07_DQ_SERVER.md](MODULE_07_DQ_SERVER.md) | 25 | **your own MCP server** with 4 DQ tools |
 | 08 | [MODULE_08_HEALTH.md](MODULE_08_HEALTH.md) | 15 | sidebar health snapshot |
-| 09 | [MODULE_09_SAVED.md](MODULE_09_SAVED.md) | 15 | `storage.py` — ★ save & replay |
-| 10 | [MODULE_10_COST.md](MODULE_10_COST.md) | 10 | `cost.py` — token + USD badge |
-| 11 | [MODULE_11_CLAUDE.md](MODULE_11_CLAUDE.md) | 15 | plug your DQ server into **Claude Desktop** |
+| 09 | [MODULE_09_RAG.md](MODULE_09_RAG.md) | 25 | **a second MCP server** with semantic search over `docs/` |
+| 10 | [MODULE_10_CLAUDE.md](MODULE_10_CLAUDE.md) | 15 | plug **both** custom servers into **Claude Desktop** |
 
 ## Stuck?
 
@@ -58,8 +57,10 @@ student/
 │   ├── chat_agent.py       # Module 02 (+ guardrail in Module 03)
 │   ├── guardrails.py       # Module 03
 │   ├── charts.py           # Module 04
-│   ├── storage.py          # Module 09
-│   └── cost.py             # Module 10
-├── config/mcp.json         # Module 05
-└── mcp_servers/dq_server.py  # Module 07  ← your own MCP server!
+│   ├── llm.py              # Module 02
+│   └── config/mcp.json     # Module 01 (+ updated in 05, 07, 09)
+└── mcp_servers/
+    ├── dq_server.py        # Module 07  ← your own MCP server!
+    ├── rag_server.py       # Module 09  ← a second one, semantic search
+    └── build_rag_index.py  # Module 09
 ```

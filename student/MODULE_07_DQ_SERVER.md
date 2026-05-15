@@ -76,7 +76,7 @@ python student/mcp_servers/dq_server.py data/shopflow.db
 ```
 It should sit silently on stdin (waiting for JSON-RPC). Press Ctrl+C.
 
-## 4. Register it in `student/config/mcp.json`
+## 4. Register it in `student/app/config/mcp.json`
 Add a 2nd entry:
 ```json
 "datapilot-dq": {

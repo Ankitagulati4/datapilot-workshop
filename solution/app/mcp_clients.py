@@ -53,7 +53,14 @@ def _load_config() -> dict:
 
 async def _gather():
     cfg = _load_config()
-    client = MultiServerMCPClient(cfg["servers"])
+    servers = cfg["mcpServers"]
+    # Make sure subprocesses use THIS interpreter (with our venv's deps),
+    # not whatever `python` happens to resolve to on PATH.
+    import sys as _sys
+    for name, spec in servers.items():
+        if spec.get("command") == "python":
+            spec["command"] = _sys.executable
+    client = MultiServerMCPClient(servers)
     tools = await client.get_tools()
     return client, tools
 

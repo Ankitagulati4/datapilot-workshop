@@ -27,7 +27,7 @@ student/app/
   ├ guardrails.py      # SQL allow-list + LIMIT injection
   ├ llm.py             # ChatGroq
   └ charts.py          # auto line/bar
-student/config/mcp.json # 1 server today, 2 by end of Module 07
+student/app/config/mcp.json # 1 server today, 2 by end of Module 07
 ```
 
 ## Today's plan (90 min)
@@ -35,9 +35,8 @@ student/config/mcp.json # 1 server today, 2 by end of Module 07
 | Part | Deliverable |
 |---|---|
 | **SUN 1** | Build YOUR OWN MCP server — `dq_server.py` with 4 DQ tools |
-| SUN 2 | Sidebar "Health snapshot" calling those tools at app load |
-| SUN 3 | ★ Save question → reload from sidebar |
-| SUN 4 | Per-turn token + USD badge |
-| SUN 5 | Plug your DQ server into **Claude Desktop** 🎉 |
+| SUN 2 | Sidebar "Health snapshot" calling those tools |
+| SUN 3 | Build a SECOND MCP server — `rag_server.py` with semantic search over docs |
+| SUN 4 | Plug BOTH custom servers into **Claude Desktop** 🎉 |
 
-> 🎯 The big idea today: yesterday you *consumed* MCP. Today you *publish* MCP.
+> 🎯 The big idea today: yesterday you *consumed* MCP. Today you *publish* MCP — twice, in two completely different shapes (SQL DQ + semantic search).

@@ -13,8 +13,15 @@ langgraph>=0.2,<2.0
 
 # MCP - the spine of the architecture
 mcp>=1.0
-langchain-mcp-adapters>=0.1
+# Pin <0.2: 0.2.x imports langchain_core.messages.content which doesn't exist
+# in langchain-core 0.3.x (what the rest of the workshop uses).
+langchain-mcp-adapters>=0.1,<0.2
 nest-asyncio>=1.6
+
+# RAG (Module 09) - second in-house MCP server with semantic search.
+# ChromaDB ships its own ONNX-runtime embedding (all-MiniLM-L6-v2),
+# so we don't pull torch / sentence-transformers (saves ~2 GB).
+chromadb>=0.5
 
 # Dev / authoring
 pytest>=8.0

@@ -6,11 +6,20 @@ and that is on purpose.
 
 Run:  .\\run.ps1
 """
+# --- import path shim -------------------------------------------------------
+# Streamlit launches this file from the repo root, so `from app.foo import ...`
+# would fail with ModuleNotFoundError. Add this file's parent (student/) to
+# sys.path so `app` is an importable top-level package.
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+# ---------------------------------------------------------------------------
+
 import streamlit as st
 
 st.set_page_config(page_title="DataPilot (student)", page_icon="🛠️", layout="wide")
 st.title("🛠️ DataPilot — let's build it")
-st.caption("Module 0: empty shell. By Module 11 this is a working SQL+DQ chat app.")
+st.caption("Module 0: empty shell. By Module 10 this is a working SQL + DQ + RAG chat app.")
 
 with st.sidebar:
     st.header("Build progress")
@@ -27,9 +36,8 @@ with st.sidebar:
         "- MODULE_06_RECAP\n"
         "- MODULE_07_DQ_SERVER\n"
         "- MODULE_08_HEALTH\n"
-        "- MODULE_09_SAVED\n"
-        "- MODULE_10_COST\n"
-        "- MODULE_11_CLAUDE"
+        "- MODULE_09_RAG\n"
+        "- MODULE_10_CLAUDE"
     )
 
 st.write("👈 Open `MODULE_00_SETUP.md` and start building.")

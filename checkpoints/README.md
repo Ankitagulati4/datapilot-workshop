@@ -15,9 +15,8 @@ each PART card lists exactly which files to copy.
 | Module 05 (Config) | nothing to copy — pure walkthrough |
 | Module 07 (DQ server) | `solution/mcp_servers/dq_server.py` |
 | Module 08 (Health) | sidebar block from `solution/app/streamlit_app.py` |
-| Module 09 (Saved) | `storage.py` |
-| Module 10 (Cost) | `cost.py` |
-| Module 11 (Claude) | use `claude_desktop_config.example.json` |
+| Module 09 (RAG server) | `solution/mcp_servers/rag_server.py` + `build_rag_index.py` |
+| Module 10 (Claude) | use `claude_desktop_config.example.json` |
 
 ## "Just run the finished thing"
 ```powershell
