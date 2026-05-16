@@ -19,20 +19,35 @@ next launch.)
 
 ## 3. Paste this — adjust paths!
 
+> ⚠️ **Do NOT use `"command": "python"`.** Claude Desktop launches from
+> its own working directory and uses the *system* PATH — not your
+> workshop `.venv`. The bare word `python` will resolve to a Python that
+> doesn't have `mcp`, `chromadb`, etc. installed, the server will crash
+> on import, and Claude will show **`failed — Server disconnected`**.
+> Always point `command` at the **absolute path** of your venv's
+> `python.exe`.
+
+First, get the exact path of your venv interpreter:
+```powershell
+& .\.venv\Scripts\python.exe -c "import sys; print(sys.executable)"
+```
+Copy that path (e.g. `C:\Users\ankit.ANKITA\...\datapilot-workshop\.venv\Scripts\python.exe`)
+and use it in the config below.
+
 ```json
 {
   "mcpServers": {
     "datapilot-dq": {
-      "command": "python",
+      "command": "C:\\Users\\YOU\\path\\to\\datapilot-workshop\\.venv\\Scripts\\python.exe",
       "args": [
-        "C:\\Users\\YOU\\path\\to\\session7-sql-data-agent\\student\\mcp_servers\\dq_server.py",
-        "C:\\Users\\YOU\\path\\to\\session7-sql-data-agent\\data\\shopflow.db"
+        "C:\\Users\\YOU\\path\\to\\datapilot-workshop\\student\\mcp_servers\\dq_server.py",
+        "C:\\Users\\YOU\\path\\to\\datapilot-workshop\\data\\shopflow.db"
       ]
     },
     "datapilot-rag": {
-      "command": "python",
+      "command": "C:\\Users\\YOU\\path\\to\\datapilot-workshop\\.venv\\Scripts\\python.exe",
       "args": [
-        "C:\\Users\\YOU\\path\\to\\session7-sql-data-agent\\student\\mcp_servers\\rag_server.py"
+        "C:\\Users\\YOU\\path\\to\\datapilot-workshop\\student\\mcp_servers\\rag_server.py"
       ]
     }
   }
@@ -42,15 +57,17 @@ next launch.)
 A copy-paste template lives at `claude_desktop_config.example.json` in
 the repo root.
 
-> ⚠️ **Use absolute paths** with double-backslashes (`\\`) or forward
-> slashes (`/`) — Claude Desktop runs the command from its own cwd.
+> ⚠️ **Use absolute paths** everywhere with double-backslashes (`\\`)
+> or forward slashes (`/`). JSON treats `\` as an escape character — a
+> single backslash is a syntax error.
 
-> ⚠️ **Use the same `python.exe` your venv uses.** The simplest way:
+> ✅ **Verify the venv is wired correctly** before restarting Claude:
 > ```powershell
-> Get-Command python | Select-Object -ExpandProperty Source
+> & "C:\Users\YOU\path\to\datapilot-workshop\.venv\Scripts\python.exe" -c "import mcp, chromadb; print('ok')"
 > ```
-> Use that path as `"command"` instead of just `"python"` if Claude
-> can't find your venv on PATH.
+> If that prints `ok`, Claude Desktop will spawn the servers successfully.
+> If it errors with `ModuleNotFoundError`, run
+> `pip install -r requirements.txt` *inside the venv* first.
 
 ## 4. Quit & re-open Claude Desktop
 Fully quit (system tray icon → Quit). Re-launch. Click the 🛠️ tools icon
@@ -59,6 +76,18 @@ in the chat composer.
 You should see **two** servers listed:
 - `datapilot-dq` · 4 tools
 - `datapilot-rag` · 2 tools
+
+### Troubleshooting — `failed — Server disconnected`
+This is the most common error. Click **View Logs** to confirm. Almost
+always one of:
+
+| Symptom in logs | Cause | Fix |
+|---|---|---|
+| `ModuleNotFoundError: No module named 'mcp'` or `'chromadb'` | `command` is `"python"` instead of your venv's `python.exe` | See section 3 — use the absolute venv path |
+| `FileNotFoundError: [...] dq_server.py` | Relative path in `args` | Use absolute paths everywhere |
+| `Invalid \\escape` JSON parse error | Single backslash in a Windows path | Double them (`\\`) or use forward slashes (`/`) |
+| `sqlite3.OperationalError: unable to open database file` | DB path wrong / file missing | Run `python data/build_shopflow.py` first |
+| `Collection [shopflow_docs] does not exist` | RAG index never built | Run `python student/mcp_servers/build_rag_index.py` first |
 
 ## 5. The combined demo
 
