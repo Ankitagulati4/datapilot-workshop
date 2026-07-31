@@ -27,7 +27,12 @@ SYSTEM = """You are DataPilot, a careful data analyst.
 # Allow-list of tool names the LLM is even ALLOWED to see. Anything not here
 # (e.g. write_query, create_table, append_insight) is hidden -> the model
 # literally CAN'T pick it. Defence in depth alongside the SQL guardrail.
-SAFE = {"read_query", "list_tables", "describe_table"}
+SAFE = {
+    # shopflow-sqlite
+    "read_query", "list_tables", "describe_table",
+    # datapilot-dq (Module 07)
+    "count_rows", "check_freshness", "check_nulls", "check_duplicates",
+}
 
 # Free Groq tiers cap requests at ~8000 tokens/minute. The agent's memory keeps
 # the WHOLE conversation (including big schema dumps + query rows), and re-sends
@@ -120,39 +125,72 @@ class ChatAgent:
         self._processed = 0
 
     def ask(self, q: str) -> TurnResult:
-        """Run one reason-act loop for the user's question."""
+        """Run one reason-act loop for the user's question.
+
+        gpt-oss models on Groq occasionally emit malformed tool-call syntax
+        that Groq's server rejects with HTTP 400 `output_parse_failed` (the
+        assistant bubble comes back blank and you have to re-ask). That's a
+        transient model glitch, not a bug in our prompt -- so we transparently
+        retry the turn a couple of times to deliver the answer in ONE go.
+        """
         t0 = time.time()
-        try:
-            # MCP tools are async-only (StructuredTool has no sync impl).
-            # Drive the graph on the SAME persistent loop that owns the MCP
-            # sessions (run_sync blocks until the turn completes). Reusing one
-            # loop keeps the servers alive between turns -> fast, no hangs.
-            state = run_sync(self.graph.ainvoke(
-                {"messages": [HumanMessage(q)]}, self.thread))
+        last_err = None
+        for _attempt in range(3):          # 1 try + up to 2 automatic retries
+            try:
+                # MCP tools are async-only (StructuredTool has no sync impl).
+                # Drive the graph on the SAME persistent loop that owns the MCP
+                # sessions (run_sync blocks until the turn completes). Reusing one
+                # loop keeps the servers alive between turns -> fast, no hangs.
+                state = run_sync(self.graph.ainvoke(
+                    {"messages": [HumanMessage(q)]}, self.thread))
 
-            # InMemorySaver returns the ENTIRE conversation. Only walk the
-            # messages appended during THIS turn so the trace + table reflect
-            # the current question, not a previous one.
-            msgs = state["messages"]
-            new_msgs = msgs[self._processed:]
-            self._processed = len(msgs)
+                # InMemorySaver returns the ENTIRE conversation. Only walk the
+                # messages appended during THIS turn so the trace + table reflect
+                # the current question, not a previous one.
+                msgs = state["messages"]
+                new_msgs = msgs[self._processed:]
 
-            # Walk this turn's messages and pair each tool call with its output
-            # so the UI can show "this tool was called with these args, result was X".
-            calls = []
-            for m in new_msgs:
-                if hasattr(m, "tool_calls") and m.tool_calls:
-                    for tc in m.tool_calls:
-                        calls.append({"tool": tc["name"], "input": tc["args"], "output": ""})
-                if m.__class__.__name__ == "ToolMessage" and calls:
-                    calls[-1]["output"] = m.content
+                # Walk this turn's messages and pair each tool call with its output
+                # so the UI can show "this tool was called with these args, result was X".
+                calls = []
+                for m in new_msgs:
+                    if hasattr(m, "tool_calls") and m.tool_calls:
+                        for tc in m.tool_calls:
+                            calls.append({"tool": tc["name"], "input": tc["args"], "output": ""})
+                    if m.__class__.__name__ == "ToolMessage" and calls:
+                        calls[-1]["output"] = m.content
 
-            return TurnResult(
-                answer=msgs[-1].content,
-                tool_calls=calls,
-                latency_ms=int((time.time() - t0) * 1000),
-            )
-        except Exception as e:
-            # Surface ANY failure in the UI instead of crashing Streamlit.
-            return TurnResult(answer="", error=f"{type(e).__name__}: {e}",
-                              latency_ms=int((time.time() - t0) * 1000))
+                answer = msgs[-1].content
+                # gpt-oss sometimes returns content as a list of blocks
+                # ([{type,text}, ...]) -- flatten to plain text for the UI.
+                if isinstance(answer, list):
+                    answer = "".join(
+                        b.get("text", "") for b in answer if isinstance(b, dict)
+                    )
+                # Two gpt-oss quirks land here: (a) a blank final message even
+                # though tools ran fine, and (b) a blank message with no tools.
+                # Either way the user sees an empty bubble -> retry the turn so
+                # the answer arrives in ONE go.
+                if isinstance(answer, str) and not answer.strip():
+                    last_err = "empty response from model"
+                    continue
+
+                # Success -> commit our progress marker and return.
+                self._processed = len(msgs)
+                return TurnResult(
+                    answer=answer,
+                    tool_calls=calls,
+                    latency_ms=int((time.time() - t0) * 1000),
+                )
+            except Exception as e:
+                last_err = f"{type(e).__name__}: {e}"
+                # Retry ONLY the known-transient Groq tool-call parse failure.
+                # Anything else (bad SQL, network down, etc.) surfaces at once.
+                if "output_parse_failed" in str(e) or "Parsing failed" in str(e):
+                    continue
+                break
+
+        # All retries exhausted (or a non-transient error) -> surface it in the
+        # UI instead of crashing Streamlit.
+        return TurnResult(answer="", error=last_err,
+                          latency_ms=int((time.time() - t0) * 1000))

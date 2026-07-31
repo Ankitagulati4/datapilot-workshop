@@ -4,6 +4,11 @@
       "command": ".venv/Scripts/mcp-server-sqlite.exe",
       "args": ["--db-path", "${SHOPFLOW_DB}"],
       "transport": "stdio"
+    },
+    "datapilot-dq": {
+      "command": "python",
+      "args": ["student/mcp_servers/dq_server.py", "${SHOPFLOW_DB}"],
+      "transport": "stdio"
     }
   }
 }
