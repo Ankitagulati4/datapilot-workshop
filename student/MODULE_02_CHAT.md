@@ -214,3 +214,10 @@ if q := st.chat_input("Ask about the data..."):
 - Ask: **"how many customers do we have?"** → `800`
 - Follow-up: **"and orders?"** → `4000` (memory kept context)
 - Expand the steps panel — you should see `list_tables`, `describe_table`, `count_rows` calls.
+
+"which country has the most customers?"
+"and the least?" (it remembers you're talking about customers by country)
+
+"how many orders do we have?" → 4000
+"which channel drives the most of them?"
+"and what's the revenue from that channel?" (remembers "that channel")

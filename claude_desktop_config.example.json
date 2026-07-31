@@ -17,6 +17,8 @@
     "shopflow-sqlite": {
       "command": "uvx",
       "args": [
+        "--with",
+        "mcp<2",
         "mcp-server-sqlite",
         "--db-path",
         "<REPO_ABS_PATH>/data/shopflow.db"

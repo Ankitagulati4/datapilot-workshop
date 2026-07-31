@@ -13,21 +13,26 @@ Run once:  python data/build_shopflow.py
 """
 from __future__ import annotations
 
-import random
-import sqlite3
+import random          # picks random values (customers, prices, dates, ...)
+import sqlite3         # Python's built-in driver for the file-based SQLite database
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from faker import Faker
+from faker import Faker  # generates realistic fake names, emails, etc.
 
+# Fix the random "seed" so the fake data is IDENTICAL every time this runs.
+# That is why every student's shopflow.db is exactly the same.
 random.seed(42)
 Faker.seed(42)
 fake = Faker()
 
+# Where the database file is written: data/shopflow.db (next to THIS script).
 DB_PATH = Path(__file__).parent / "shopflow.db"
+# How much data to generate.
 N_CUSTOMERS = 800
 N_PRODUCTS = 120
 N_ORDERS = 4000
+# All fake dates fall between these two dates.
 START = datetime(2025, 1, 1)
 END = datetime(2026, 5, 1)
 
@@ -46,17 +51,23 @@ TICKET_CATS = ["shipping", "refund", "product_defect", "billing", "account", "ot
 
 
 def rand_date(start=START, end=END) -> datetime:
+    """Return a random datetime somewhere between `start` and `end`."""
     delta = end - start
     return start + timedelta(seconds=random.randint(0, int(delta.total_seconds())))
 
 
 def main() -> None:
+    # Make sure the data/ folder exists.
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    # Delete any old database so we always build a clean, fresh one.
     if DB_PATH.exists():
         DB_PATH.unlink()
+    # Open (creates the file) and get a cursor to run SQL commands through.
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
 
+    # executescript runs several SQL statements at once: here we CREATE all
+    # 7 empty tables (the database "schema" / structure) before adding data.
     cur.executescript(
         """
         CREATE TABLE customers (
@@ -122,7 +133,9 @@ def main() -> None:
         """
     )
 
-    # Customers
+    # --- Customers: build a list of 800 rows, then insert them all at once ---
+    # random.choices(..., weights=[...]) makes some options more common than
+    # others (e.g. ~60% "new", ~30% "returning", ~10% "vip").
     customers = []
     for cid in range(1, N_CUSTOMERS + 1):
         customers.append((
@@ -131,6 +144,7 @@ def main() -> None:
             rand_date(START, END - timedelta(days=30)).date().isoformat(),
             random.choices(["new", "returning", "vip"], weights=[60, 30, 10])[0],
         ))
+    # executemany + the ? placeholders = safe, fast bulk insert (no SQL injection).
     cur.executemany("INSERT INTO customers VALUES (?,?,?,?,?,?)", customers)
 
     # Products
@@ -145,7 +159,9 @@ def main() -> None:
         ))
     cur.executemany("INSERT INTO products VALUES (?,?,?,?,?,?)", products)
 
-    # Orders + items
+    # --- Orders + their line items ---
+    # Each order has 1-5 items. We build BOTH lists together and compute the
+    # order total by summing quantity x unit_price across its items.
     orders, items = [], []
     item_id = 1
     for oid in range(1, N_ORDERS + 1):
@@ -210,6 +226,8 @@ def main() -> None:
         ))
     cur.executemany("INSERT INTO web_sessions VALUES (?,?,?,?,?,?,?)", sessions)
 
+    # commit() saves everything permanently to the file; close() releases it.
+    # Without commit(), none of the inserted data would actually be stored.
     conn.commit()
     conn.close()
     print(f"[ok] Built ShopFlow database at {DB_PATH}")

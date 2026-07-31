@@ -1,11 +1,10 @@
 ﻿# Module 01 — Talk to MCP (15 min)
 
 > Goal: spawn an off-the-shelf MCP server (`mcp-server-sqlite`) from Python and list its tools in the sidebar.
+https://github.com/modelcontextprotocol/servers
 
 ## Why MCP?
-MCP = Model Context Protocol. Tools live in **separate processes** with a
-strict JSON contract. Your agent stops caring whether it's SQLite, Postgres,
-Snowflake — it just sees `read_query`, `list_tables`, etc.
+MCP = Model Context Protocol. Tools live in **separate processes** with a strict JSON contract. Your agent stops caring whether it's SQLite, Postgres, Snowflake — it just sees `read_query`, `list_tables`, etc.
 
 > ⚠️ **Path note** — we put `mcp.json` **inside** `student/app/config/`
 > (sibling of `mcp_clients.py`), matching the layout used by `solution/`.

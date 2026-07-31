@@ -59,3 +59,5 @@ That's it. The agent code, the guardrail, the charts — none of it changes.
 - You can describe each field of `mcp.json` to your neighbour.
 - You added a 2nd entry (e.g. `mcp-server-fetch`), restarted, and saw 2 ● badges.
 - You removed the 2nd entry to keep the workshop scope clean.
+
+Fetch https://example.com and tell me what the page says
