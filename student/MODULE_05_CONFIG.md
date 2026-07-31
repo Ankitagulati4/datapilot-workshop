@@ -31,7 +31,7 @@ that can pull a URL:
 ```json
 {
   "mcpServers": {
-    "shopflow-sqlite": { "command": "uvx", "args": ["mcp-server-sqlite", "--db-path", "${SHOPFLOW_DB}"], "transport": "stdio" },
+    "shopflow-sqlite": { "command": "uvx", "args": ["--with", "mcp<2", "mcp-server-sqlite", "--db-path", "${SHOPFLOW_DB}"], "transport": "stdio" },
     "web-fetch":       { "command": "uvx", "args": ["mcp-server-fetch"], "transport": "stdio" }
   }
 }

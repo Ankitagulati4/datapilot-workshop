@@ -2,13 +2,20 @@
 import asyncio     # MCP servers talk over async stdio; we need an event loop
 import json        # parse mcp.json
 import os          # read environment variables (for ${VAR} substitution)
+import sys         # sys.executable -> force servers to use THIS interpreter
 import threading   # run ONE long-lived event loop in a background thread
 from contextlib import AsyncExitStack  # keep N sessions open together
 from pathlib import Path  # cross-platform file paths
 
-# `langchain-mcp-adapters` is the glue: it speaks MCP to N servers and
-# returns each remote tool wrapped as a LangChain BaseTool the agent can call.
-from langchain_mcp_adapters.client import MultiServerMCPClient
+# Talk MCP with the official SDK directly (stdio transport + client session).
+# NOTE: we deliberately do NOT use langchain-mcp-adapters' MultiServerMCPClient
+# here -- its session wrapper deadlocks when several stdio servers are driven
+# from one shared event loop and one of them (the RAG server) has a slower
+# first call. The raw SDK handles that concurrency cleanly.
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+# We still use the adapter's helper to wrap each remote MCP tool as a LangChain
+# BaseTool -- it operates on a plain ClientSession, so it's unaffected.
 from langchain_mcp_adapters.tools import load_mcp_tools as _load_tools_from_session
 
 # config/ is a sibling of THIS file (student/app/config/mcp.json).
@@ -71,12 +78,23 @@ async def _server_main():
     global _tools, _cfg, _error
     try:
         cfg = _load_config()
-        client = MultiServerMCPClient(cfg)
         async with AsyncExitStack() as stack:
             tools: list = []
-            for name in cfg:
-                # Forks the server subprocess + MCP handshake ONCE.
-                session = await stack.enter_async_context(client.session(name))
+            for name, spec in cfg.items():
+                command = spec["command"]
+                # "python" on PATH may not be THIS venv (so packages like
+                # chromadb wouldn't be found). Force our own interpreter.
+                if command == "python":
+                    command = sys.executable
+                params = StdioServerParameters(
+                    command=command,
+                    args=spec.get("args", []),
+                    env=spec.get("env"),
+                )
+                # Fork the server subprocess + open the stdio session ONCE.
+                read, write = await stack.enter_async_context(stdio_client(params))
+                session = await stack.enter_async_context(ClientSession(read, write))
+                await session.initialize()
                 tools.extend(await _load_tools_from_session(session))
             _tools, _cfg = tools, cfg
             _ready.set()                 # signal load_mcp_tools() it can return

@@ -75,7 +75,7 @@ Replace the **entire** contents of `student/app/chat_agent.py` with:
 
 ```python
 """DataPilot chat agent — Module 03: tool allow-list + SQL guardrail."""
-import time, asyncio, nest_asyncio
+import time
 from dataclasses import dataclass, field
 
 # LangGraph gives us a ready-made ReAct loop (reason -> act -> observe -> ...)
@@ -86,13 +86,9 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.llm import get_llm
-from app.mcp_clients import load_mcp_tools
+from app.mcp_clients import load_mcp_tools, run_sync
 # NEW in Module 03: the SQL firewall.
 from app.guardrails import validate_and_fix, GuardrailError
-
-# Streamlit already runs an event loop. Without this patch you'd hit
-# 'RuntimeError: This event loop is already running' every chat turn.
-nest_asyncio.apply()
 
 SYSTEM = """You are DataPilot, a careful data analyst.
 - Use list_tables / describe_table to discover schema before SELECTing.
@@ -177,9 +173,9 @@ class ChatAgent:
         t0 = time.time()
         try:
             # MCP tools are async-only (StructuredTool has no sync impl).
-            # Drive the graph via ainvoke() and bridge to sync with asyncio.run().
-            # nest_asyncio.apply() above lets this nest inside Streamlit's loop.
-            state = asyncio.run(self.graph.ainvoke(
+            # Drive the graph on the SAME persistent loop that owns the MCP
+            # sessions -- run_sync blocks until the turn completes.
+            state = run_sync(self.graph.ainvoke(
                 {"messages": [HumanMessage(q)]}, self.thread))
 
             # Walk the messages and pair each tool call with its output

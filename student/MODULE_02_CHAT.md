@@ -4,7 +4,7 @@
 
 ## 1. Create `student/app/chat_agent.py`
 ```python
-import time, asyncio, nest_asyncio
+import time
 from dataclasses import dataclass, field
 
 # LangGraph gives us a ready-made ReAct loop (reason -> act -> observe -> ...)
@@ -15,11 +15,9 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.llm import get_llm                # our LLM factory (Module 02 step 2)
-from app.mcp_clients import load_mcp_tools  # the tools we discovered in Module 01
-
-# Streamlit already runs an event loop. Without this patch you'd hit
-# 'RuntimeError: This event loop is already running' every chat turn.
-nest_asyncio.apply()
+# load_mcp_tools spawns the servers; run_sync drives async work on the SAME
+# persistent loop that owns the MCP sessions (see Module 01).
+from app.mcp_clients import load_mcp_tools, run_sync
 
 # The system prompt is the model's job description. We bake the rules of
 # engagement here so the agent stays grounded and concise.
@@ -62,9 +60,10 @@ class ChatAgent:
         t0 = time.time()
         try:
             # MCP tools are async-only (StructuredTool has no sync impl).
-            # Drive the graph via ainvoke() and bridge to sync with asyncio.run().
-            # nest_asyncio.apply() above lets this nest inside Streamlit's loop.
-            state = asyncio.run(self.graph.ainvoke(
+            # Drive the graph on the SAME persistent loop that owns the MCP
+            # sessions -- run_sync blocks until the turn completes. (Reusing one
+            # loop keeps the servers alive between turns -> fast, no hangs.)
+            state = run_sync(self.graph.ainvoke(
                 {"messages": [HumanMessage(q)]}, self.thread))
 
             # Walk the messages and pair each tool call with its output

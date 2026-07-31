@@ -190,7 +190,7 @@ Add a 2nd entry (keep the existing `shopflow-sqlite` block):
   "mcpServers": {
     "shopflow-sqlite": {
       "command": "uvx",
-      "args": ["mcp-server-sqlite", "--db-path", "${SHOPFLOW_DB}"],
+      "args": ["--with", "mcp<2", "mcp-server-sqlite", "--db-path", "${SHOPFLOW_DB}"],
       "transport": "stdio"
     },
     "datapilot-dq": {

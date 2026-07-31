@@ -10,19 +10,19 @@ The trace of every tool call is captured for the UI's "Show steps" expander.
 """
 from __future__ import annotations
 
-import asyncio
 import time
 from dataclasses import dataclass, field
 from typing import Any
 
-import nest_asyncio
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages.utils import count_tokens_approximately, trim_messages
 from langgraph.prebuilt import create_react_agent
 
 from solution.app.guardrails import GuardrailError, validate_and_fix
 from solution.app.llm import get_llm
-
-nest_asyncio.apply()
+# run_sync drives the graph on the SAME persistent loop that owns the MCP
+# sessions (mixing event loops hangs).
+from solution.app.mcp_clients import run_sync
 
 SYSTEM_PROMPT = """You are DataPilot, an analytics colleague for the ShopFlow team.
 
@@ -112,43 +112,82 @@ class ChatAgent:
         self.history = []
 
     def ask(self, question: str) -> TurnResult:
+        """Run one reason-act turn, retrying transient gpt-oss tool glitches.
+
+        gpt-oss on Groq occasionally emits unparseable output or a malformed
+        tool name (e.g. 'check_duplicates<|channel|>commentary'), which Groq
+        rejects with HTTP 400. Those are transient -> we retry the turn so the
+        answer arrives in ONE go instead of a blank bubble.
+        """
         t0 = time.perf_counter()
         out = TurnResult()
-        try:
-            messages = list(self.history) + [HumanMessage(content=question)]
-            state = asyncio.run(self.graph.ainvoke(
-                {"messages": messages},
-                config={"recursion_limit": 25},
-            ))
-            new_msgs = state["messages"][len(messages):]   # only new ones from this turn
+        messages = list(self.history) + [HumanMessage(content=question)]
+        # Cap the tokens sent to the LLM so a long chat can't blow the free-tier
+        # TPM limit (HTTP 413). We still keep FULL history in self.history.
+        trimmed = trim_messages(
+            messages,
+            max_tokens=3000,
+            strategy="last",
+            token_counter=count_tokens_approximately,
+            start_on="human",
+            allow_partial=False,
+        )
+        last_err = ""
+        for _attempt in range(3):          # 1 try + up to 2 automatic retries
+            try:
+                state = run_sync(self.graph.ainvoke(
+                    {"messages": trimmed},
+                    config={"recursion_limit": 25},
+                ))
+                new_msgs = state["messages"][len(trimmed):]   # only this turn's
 
-            # Walk new messages: collect tool calls and final assistant text
-            pending: dict[str, dict[str, Any]] = {}
-            final_text = ""
-            for msg in new_msgs:
-                if isinstance(msg, AIMessage):
-                    if msg.content:
-                        final_text = (
-                            msg.content if isinstance(msg.content, str)
-                            else "".join(p.get("text", "") for p in msg.content if isinstance(p, dict))
-                        )
-                    for tc in (msg.tool_calls or []):
-                        pending[tc["id"]] = {
-                            "tool": tc["name"], "input": tc["args"], "output": "",
-                        }
-                elif isinstance(msg, ToolMessage):
-                    if msg.tool_call_id in pending:
-                        pending[msg.tool_call_id]["output"] = str(msg.content)[:600]
-                    else:
-                        pending[msg.tool_call_id or f"orphan_{len(pending)}"] = {
-                            "tool": msg.name or "?", "input": {},
-                            "output": str(msg.content)[:600],
-                        }
-                    out.tool_calls.append(pending[msg.tool_call_id])
+                # Walk new messages: collect tool calls and final assistant text
+                pending: dict[str, dict[str, Any]] = {}
+                tool_calls: list[dict[str, Any]] = []
+                final_text = ""
+                for msg in new_msgs:
+                    if isinstance(msg, AIMessage):
+                        if msg.content:
+                            final_text = (
+                                msg.content if isinstance(msg.content, str)
+                                else "".join(p.get("text", "") for p in msg.content if isinstance(p, dict))
+                            )
+                        for tc in (msg.tool_calls or []):
+                            pending[tc["id"]] = {
+                                "tool": tc["name"], "input": tc["args"], "output": "",
+                            }
+                    elif isinstance(msg, ToolMessage):
+                        if msg.tool_call_id in pending:
+                            pending[msg.tool_call_id]["output"] = str(msg.content)[:600]
+                        else:
+                            pending[msg.tool_call_id or f"orphan_{len(pending)}"] = {
+                                "tool": msg.name or "?", "input": {},
+                                "output": str(msg.content)[:600],
+                            }
+                        tool_calls.append(pending[msg.tool_call_id])
 
-            out.answer = final_text.strip() or "(no answer)"
-            self.history = messages + [AIMessage(content=out.answer)]
-        except Exception as e:
-            out.error = f"{type(e).__name__}: {e}"
+                answer = final_text.strip()
+                # Blank final message (another gpt-oss quirk) -> retry.
+                if not answer:
+                    last_err = "empty response from model"
+                    continue
+
+                out.answer = answer
+                out.tool_calls = tool_calls
+                self.history = messages + [AIMessage(content=answer)]
+                out.latency_ms = int((time.perf_counter() - t0) * 1000)
+                return out
+            except Exception as e:
+                last_err = f"{type(e).__name__}: {e}"
+                # Retry the known-transient gpt-oss/Groq tool-calling glitches;
+                # anything else (bad SQL, network down, ...) surfaces at once.
+                m = str(e)
+                if ("output_parse_failed" in m or "Parsing failed" in m
+                        or "tool_use_failed" in m
+                        or "tool call validation failed" in m):
+                    continue
+                break
+
+        out.error = last_err or "unknown error"
         out.latency_ms = int((time.perf_counter() - t0) * 1000)
         return out

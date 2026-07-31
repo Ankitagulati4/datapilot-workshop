@@ -28,10 +28,12 @@ SYSTEM = """You are DataPilot, a careful data analyst.
 # (e.g. write_query, create_table, append_insight) is hidden -> the model
 # literally CAN'T pick it. Defence in depth alongside the SQL guardrail.
 SAFE = {
-    # shopflow-sqlite
+    # shopflow-sqlite (Module 03)
     "read_query", "list_tables", "describe_table",
     # datapilot-dq (Module 07)
     "count_rows", "check_freshness", "check_nulls", "check_duplicates",
+    # datapilot-rag (Module 09) — NEW
+    "search_docs", "list_docs",
 }
 
 # Free Groq tiers cap requests at ~8000 tokens/minute. The agent's memory keeps
@@ -184,9 +186,16 @@ class ChatAgent:
                 )
             except Exception as e:
                 last_err = f"{type(e).__name__}: {e}"
-                # Retry ONLY the known-transient Groq tool-call parse failure.
+                # Retry the known-transient gpt-oss/Groq tool-calling glitches:
+                #  - output_parse_failed : model emitted unparseable output
+                #  - tool_use_failed     : model emitted a malformed tool name,
+                #    e.g. 'check_duplicates<|channel|>commentary' (harmony-format
+                #    tokens leaking into the tool name)
                 # Anything else (bad SQL, network down, etc.) surfaces at once.
-                if "output_parse_failed" in str(e) or "Parsing failed" in str(e):
+                msg = str(e)
+                if ("output_parse_failed" in msg or "Parsing failed" in msg
+                        or "tool_use_failed" in msg
+                        or "tool call validation failed" in msg):
                     continue
                 break
 

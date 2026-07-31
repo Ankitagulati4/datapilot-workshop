@@ -28,7 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from solution.app.charts import auto_chart
 from solution.app.chat_agent import ChatAgent, filter_and_guard
-from solution.app.mcp_clients import load_mcp_tools
+from solution.app.mcp_clients import load_mcp_tools, run_sync
 
 st.set_page_config(page_title="DataPilot", page_icon="📊", layout="wide")
 
@@ -90,13 +90,15 @@ with st.sidebar:
         st.session_state.health = {}
         try:
             tool_map = {t.name: t for t in raw_tools}
-            import asyncio
             for table in ("orders", "customers", "products"):
                 if "count_rows" in tool_map:
-                    res = asyncio.run(tool_map["count_rows"].ainvoke({"table": table}))
+                    # run_sync drives the call on the persistent MCP loop (~20 ms).
+                    # asyncio.run here would spawn a NEW loop per call and can't
+                    # reuse the open session -> every check would be slow.
+                    res = run_sync(tool_map["count_rows"].ainvoke({"table": table}))
                     st.session_state.health[f"rows {table}"] = _flatten(res)
             if "check_freshness" in tool_map:
-                res = asyncio.run(tool_map["check_freshness"].ainvoke({"table": "orders"}))
+                res = run_sync(tool_map["check_freshness"].ainvoke({"table": "orders"}))
                 st.session_state.health["freshness orders"] = _flatten(res)
         except Exception as e:
             st.session_state.health = {"error": f"{type(e).__name__}: {e}"}

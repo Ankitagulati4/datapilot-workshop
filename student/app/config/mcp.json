@@ -9,6 +9,11 @@
       "command": "python",
       "args": ["student/mcp_servers/dq_server.py", "${SHOPFLOW_DB}"],
       "transport": "stdio"
+    },
+    "datapilot-rag": {
+      "command": "python",
+      "args": ["student/mcp_servers/rag_server.py"],
+      "transport": "stdio"
     }
   }
 }

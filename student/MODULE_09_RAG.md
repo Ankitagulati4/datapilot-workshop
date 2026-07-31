@@ -35,7 +35,7 @@ student/mcp_servers/
 └── rag_server.py                    ← MCP server: 2 tools, ~50 lines
 
 student/app/config/mcp.json          ← add 3rd entry: datapilot-rag
-student/app/chat_agent.py            ← add 2 names to SAFE_TOOL_NAMES
+student/app/chat_agent.py            ← add 2 names to SAFE
 ```
 
 Time: 25 min in 5 sub-steps.
@@ -282,7 +282,7 @@ Add the 3rd entry:
 ```json
 {
   "mcpServers": {
-    "shopflow-sqlite": { "command": "uvx", "args": ["mcp-server-sqlite", "--db-path", "${SHOPFLOW_DB}"], "transport": "stdio" },
+    "shopflow-sqlite": { "command": "uvx", "args": ["--with", "mcp<2", "mcp-server-sqlite", "--db-path", "${SHOPFLOW_DB}"], "transport": "stdio" },
     "datapilot-dq":   { "command": "python", "args": ["student/mcp_servers/dq_server.py", "${SHOPFLOW_DB}"], "transport": "stdio" },
     "datapilot-rag":  { "command": "python", "args": ["student/mcp_servers/rag_server.py"], "transport": "stdio" }
   }
@@ -307,26 +307,58 @@ SAFE = {
 > references the existing name on line ~86 (`if t.name in SAFE`). Renaming
 > raises `NameError: name 'SAFE' is not defined`.
 
-> 🐛 **One more tweak** — in `student/app/mcp_clients.py`, the JSON says
-> `"command": "python"`. On Windows that resolves via `PATH`, which may not
-> point at your venv (so chromadb isn't found). At the top of the file add:
-> ```python
-> import sys
-> ```
-> Then inside `load_mcp_tools()`, **right after** `cfg = _load_config()`,
-> add:
-> ```python
-> for spec in cfg.values():
->     if spec.get("command") == "python":
->         spec["command"] = sys.executable
-> ```
-> This forces every Python-based MCP server to use *this* interpreter.
->
-> ⚠️ Note: iterate `cfg.values()` — NOT `cfg["mcpServers"].values()` —
-> because `_load_config()` already returns the inner servers dict. The
-> wrong form raises `KeyError: 'mcpServers'`.
+> ✅ **No code change needed here** — the current `student/app/mcp_clients.py`
+> (from Module 01) already forces every `"command": "python"` server to run
+> under *this* interpreter (`sys.executable`) inside `_server_main()`, so the
+> RAG server finds `chromadb` in your venv. If your `mcp_clients.py` still uses
+> the old `MultiServerMCPClient`, re-copy the current version from Module 01.
 
 Restart the app.
+
+## 🛡️ Hardening: retry glitches + cap tokens (recommended)
+
+`gpt-oss` on Groq occasionally (a) emits unparseable output or a **malformed
+tool name** like `check_duplicates<|channel|>commentary` (Groq rejects it with
+HTTP 400), or (b) returns a **blank** final message. Both show up as an empty
+chat bubble you have to re-ask. And on a long chat, re-sending the whole
+history can blow the free-tier token/minute cap (HTTP 413).
+
+Make the agent self-heal. In `student/app/chat_agent.py`:
+
+```python
+from langchain_core.messages.utils import trim_messages, count_tokens_approximately
+
+# Cap the tokens sent to the LLM each turn (keeps us under the TPM limit).
+def _trim_history(state):
+    return {"llm_input_messages": trim_messages(
+        state["messages"], max_tokens=3000, strategy="last",
+        token_counter=count_tokens_approximately, start_on="human",
+        allow_partial=False,
+    )}
+```
+Wire it into the graph: `create_react_agent(..., pre_model_hook=_trim_history)`.
+
+Then wrap the body of `ask()` in a small retry loop:
+```python
+for _attempt in range(3):            # 1 try + up to 2 automatic retries
+    try:
+        state = run_sync(self.graph.ainvoke(
+            {"messages": [HumanMessage(q)]}, self.thread))
+        # ... build calls + answer as before ...
+        answer = state["messages"][-1].content
+        if isinstance(answer, str) and not answer.strip():
+            continue                 # blank response -> retry
+        return TurnResult(answer=answer, tool_calls=calls,
+                          latency_ms=int((time.time() - t0) * 1000))
+    except Exception as e:
+        m = str(e)
+        if ("output_parse_failed" in m or "Parsing failed" in m
+                or "tool_use_failed" in m or "tool call validation failed" in m):
+            continue                 # transient gpt-oss glitch -> retry
+        break
+```
+
+Now a one-off model hiccup is invisible to the user — the answer arrives in one go.
 
 ## ✅ CHECK
 
