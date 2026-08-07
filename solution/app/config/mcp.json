@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "shopflow-sqlite": {
-      "command": "uvx",
-      "args": ["mcp-server-sqlite", "--db-path", "${SHOPFLOW_DB}"],
+      "command": "mcp-server-sqlite",
+      "args": ["--db-path", "${SHOPFLOW_DB}"],
       "transport": "stdio"
     },
     "datapilot-dq": {

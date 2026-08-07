@@ -143,34 +143,68 @@ First run will download the inspector (~10s). It then prints something like:
 > npx @modelcontextprotocol/inspector
 > ```
 
-#### Fill the left-hand form
-The fields default to placeholder text — **overwrite them** with:
+#### Add the server (MCP Inspector **v2.0.0** UI)
+> ℹ️ The Inspector UI changed in v2.x. Instead of one form on the left, you
+> now manage a **list of servers**. (Older v0.14 docs show a single
+> Transport/Command/Arguments form — the fields are the same, just inside an
+> "Add server" dialog now.)
 
-| Field          | Value                                                   |
-|----------------|---------------------------------------------------------|
-| Transport Type | `STDIO`                                                 |
-| Command        | `python`                                                |
-| Arguments      | `student/mcp_servers/dq_server.py data/shopflow.db`     |
+1. Click **Add Servers** (top-right) → **Add manually**. An "Add server"
+   dialog opens.
+2. Fill it in:
 
-The Arguments field takes a single string; the inspector splits it on
-spaces. So you literally type:
+| Field       | Value                                                                 |
+|-------------|-----------------------------------------------------------------------|
+| Server ID   | `datapilot-dq`                                                        |
+| Transport   | `stdio (local process)` (default)                                     |
+| Command     | **absolute path to your venv python** (see ⚠️ below)                  |
+| Arguments   | two lines — absolute path to `dq_server.py`, then absolute path to the DB |
 
+> ⚠️ **Use your venv's `python.exe`, NOT bare `python`.** The Inspector
+> launches the server with the *system* PATH, which usually can't see the
+> `mcp` package installed in your `.venv` — so bare `python` crashes the
+> server on import (`ModuleNotFoundError: No module named 'mcp'`) and the
+> connect toggle flips back to *Disconnected*. Point `Command` at the venv
+> interpreter instead. Get its exact path with:
+> ```powershell
+> (Resolve-Path .\.venv\Scripts\python.exe).Path
+> ```
+
+**Command** (example — use YOUR path):
 ```
-student/mcp_servers/dq_server.py data/shopflow.db
+C:\Users\YOU\...\datapilot-workshop\.venv\Scripts\python.exe
 ```
 
-Click **Connect**. The red dot turns green.
+**Arguments** (one per line — the dialog splits on newlines, so absolute
+paths with spaces are safe):
+```
+C:\Users\YOU\...\datapilot-workshop\student\mcp_servers\dq_server.py
+C:\Users\YOU\...\datapilot-workshop\data\shopflow.db
+```
+
+3. Click **Add**. `datapilot-dq` appears in the Servers list as
+   *Disconnected*.
+4. Flip the **Connect** toggle next to `datapilot-dq`. The status goes
+   *Connecting…* → **Connected (…ms)**. (If it snaps back to *Disconnected*,
+   re-read the ⚠️ above — it's almost always the `python` vs venv path.)
+
 
 #### Try the tools
-1. Click **Tools** in the top nav → **List Tools**. You should see all 4:
+1. With `datapilot-dq` connected, click the **Tools** tab in the top nav.
+   The 4 tools list automatically (no "List Tools" button needed in v2.x):
    `count_rows`, `check_freshness`, `check_nulls`, `check_duplicates`.
-2. Click `count_rows`, set `table = orders`, **Run Tool** → `orders: 4000 rows`.
-3. `check_freshness` with `table = orders` → `[OK] orders.order_date: ...`.
+2. Click `count_rows`, set `Table = orders`, **Execute Tool** →
+   `orders: 4000 rows` appears under **Results**.
+3. `check_freshness` with `table = orders` → `[STALE] orders.order_date: ...`
+   (the synthetic data is old, so STALE is expected).
 4. `check_nulls` with `table = customers`, `column = email`.
 5. `check_duplicates` with `table = customers`, `column = email`.
 
+Each call also shows up in the right-hand **monitoring / Messages** panel as
+a `tools/call` with an `OK` badge and latency.
+
 If all 4 return sensible strings, the server is healthy in isolation.
-Press Ctrl+C in the terminal to stop the inspector.
+Disconnect the server (or press Ctrl+C in the terminal) to stop the inspector.
 
 > Why this beats writing a probe script: the inspector is the *same* thing
 > Claude Desktop / Cursor / our LangChain agent do — JSON-RPC over stdio —
@@ -189,8 +223,8 @@ Add a 2nd entry (keep the existing `shopflow-sqlite` block):
 {
   "mcpServers": {
     "shopflow-sqlite": {
-      "command": "uvx",
-      "args": ["mcp-server-sqlite", "--db-path", "${SHOPFLOW_DB}"],
+      "command": "mcp-server-sqlite",
+      "args": ["--db-path", "${SHOPFLOW_DB}"],
       "transport": "stdio"
     },
     "datapilot-dq": {

@@ -8,16 +8,21 @@
 {
   "mcpServers": {
     "shopflow-sqlite": {
-      "command": "uvx",
-      "args": ["mcp-server-sqlite", "--db-path", "${SHOPFLOW_DB}"],
+      "command": "mcp-server-sqlite",
+      "args": ["--db-path", "${SHOPFLOW_DB}"],
       "transport": "stdio"
     }
   }
 }
 ```
 
+> ℹ️ **On this machine** the `shopflow-sqlite` server is launched via the
+> pip-installed `mcp-server-sqlite` command rather than `uvx` (uv is blocked
+> by the network's TLS-intercepting proxy — see Module 01). The canonical
+> workshop form is `"command": "uvx", "args": ["mcp-server-sqlite", ...]`.
+
 ## What each field means
-- **`command`** — executable to launch (`uvx` runs published Python MCP servers without polluting your env).
+- **`command`** — executable to launch (`uvx` runs published Python MCP servers without polluting your env; here we use the pip-installed `mcp-server-sqlite` directly).
 - **`args`** — CLI args. `${SHOPFLOW_DB}` is expanded from your `.env`.
 - **`transport`** — `stdio` (over pipes) is the simplest. The server prints JSON-RPC on stdout.
 
@@ -39,6 +44,11 @@ that can pull a URL:
 
 Restart the app → sidebar now shows **two ● badges** and the tools list
 grows by one (`fetch`). Remove the entry afterwards to keep the demo focused.
+
+> ⚠️ **On this network** `uvx mcp-server-fetch` will fail with a TLS
+> `HandshakeFailure` (the proxy blocks uv from reaching PyPI — same issue as
+> Module 01). To try this demo, `pip install mcp-server-fetch` first, then
+> use `"command": "mcp-server-fetch"` with empty `"args": []`.
 
 > 💡 The point isn't *which* server you add — it's that `mcp.json` is the
 > single place where capabilities plug in. The agent, the guardrail, and

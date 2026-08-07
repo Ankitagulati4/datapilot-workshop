@@ -80,7 +80,8 @@ def server_summary(tools: list) -> dict[str, list[str]]:
     out: dict[str, list[str]] = {}
     for t in tools:
         # langchain-mcp-adapters prefixes the server name into metadata
-        server = getattr(t, "metadata", {}).get("server", "?") if hasattr(t, "metadata") else "?"
+        meta = getattr(t, "metadata", None) or {}
+        server = meta.get("server", "?")
         if server == "?":
             # fall back to parsing the tool's name prefix or description
             server = "mcp"

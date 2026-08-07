@@ -29,6 +29,32 @@ Snowflake — it just sees `read_query`, `list_tables`, etc.
 }
 ```
 
+> ⚠️ **Network / offline fallback (used on this machine).**
+> `uvx` downloads `mcp-server-sqlite` from PyPI on first launch. Behind a
+> corporate proxy that intercepts TLS, `uv` fails with
+> `received fatal alert: HandshakeFailure` (while `pip` still works).
+> If that happens, install the server with pip and point the config at it
+> directly instead of `uvx`:
+> ```powershell
+> pip install mcp-server-sqlite
+> ```
+> ```json
+> "shopflow-sqlite": {
+>   "command": "mcp-server-sqlite",
+>   "args": ["--db-path", "${SHOPFLOW_DB}"],
+>   "transport": "stdio"
+> }
+> ```
+> This is what the working config in this repo currently uses.
+>
+> ⚠️ **`mcp` version pin.** `requirements.txt` allows `mcp>=1.0`, but `mcp`
+> 2.0.0 breaks `langchain-mcp-adapters` 0.1.x
+> (`ModuleNotFoundError: No module named 'mcp.shared.session'`). Pin it:
+> ```powershell
+> pip install "mcp>=1.0,<2.0"
+> ```
+
+
 ## 2. Create `student/app/mcp_clients.py`
 ```python
 # Standard-library helpers
@@ -79,7 +105,17 @@ from app.mcp_clients import load_mcp_tools
 # Spawn the MCP servers and grab the tools they expose.
 # `cfg` is the dict from mcp.json -> useful for showing server names in the UI.
 tools, cfg = load_mcp_tools()
+```
 
+> 💡 `mcp.json` uses `${SHOPFLOW_DB}`, so the value must be in the environment
+> before `load_mcp_tools()` runs. Load `.env` near the top of the file (right
+> after `import streamlit as st`):
+> ```python
+> from dotenv import load_dotenv
+> load_dotenv()
+> ```
+
+```python
 with st.sidebar:
     st.header("MCP servers")
     # One green dot per configured server (purely cosmetic confirmation).

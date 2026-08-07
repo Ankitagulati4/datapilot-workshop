@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "shopflow-sqlite": {
+      "command": "mcp-server-sqlite",
+      "args": ["--db-path", "${SHOPFLOW_DB}"],
+      "transport": "stdio"
+    }
+  }
+}
