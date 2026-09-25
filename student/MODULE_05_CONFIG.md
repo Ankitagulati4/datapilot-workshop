@@ -9,7 +9,7 @@
   "mcpServers": {
     "shopflow-sqlite": {
       "command": "uvx",
-      "args": ["mcp-server-sqlite", "--db-path", "${SHOPFLOW_DB}"],
+      "args": ["--default-index", "https://packagefeedproxy.microsoft.io/pypi/simple/", "--with", "mcp<2.0", "mcp-server-sqlite", "--db-path", "${SHOPFLOW_DB}"],
       "transport": "stdio"
     }
   }
@@ -31,8 +31,8 @@ that can pull a URL:
 ```json
 {
   "mcpServers": {
-    "shopflow-sqlite": { "command": "uvx", "args": ["mcp-server-sqlite", "--db-path", "${SHOPFLOW_DB}"], "transport": "stdio" },
-    "web-fetch":       { "command": "uvx", "args": ["mcp-server-fetch"], "transport": "stdio" }
+    "shopflow-sqlite": { "command": "uvx", "args": ["--default-index", "https://packagefeedproxy.microsoft.io/pypi/simple/", "--with", "mcp<2.0", "mcp-server-sqlite", "--db-path", "${SHOPFLOW_DB}"], "transport": "stdio" },
+    "web-fetch":       { "command": "uvx", "args": ["--default-index", "https://packagefeedproxy.microsoft.io/pypi/simple/", "mcp-server-fetch"], "transport": "stdio" }
   }
 }
 ```

